@@ -139,4 +139,13 @@ register(
     reward_threshold=32000
 )
 
+register(
+    id='MinecraftWallBuilder-v0',
+    entry_point='gym_minecraft.envs:MinecraftEnvRLKit',
+    kwargs={'mission_file': 'wallbuilder.xml'},
+    #tags={'wrapper_config.TimeLimit.max_episode_steps': 2424},
+    #timestep_limit=2424,
+    reward_threshold=32000
+)
+
 
