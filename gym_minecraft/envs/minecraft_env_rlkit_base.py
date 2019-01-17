@@ -29,11 +29,11 @@ MULTIPLE_DIRECTION_DISCRETE_MOVEMENTS = [ "move", "turn", "look", "strafe",
 
 BLOCK_KEY = dict(air=0, brick_block=1, grass=2, dirt=3, clay=4, spruce_fence=2)
 
-class MinecraftEnvRLKit(gym.Env):
+class MinecraftEnvRLKitBase(gym.Env):
     metadata = {'render.modes': ['human', 'rgb_array']}
 
     def __init__(self, mission_file):
-        super(MinecraftEnvRLKit, self).__init__()
+        super(MinecraftEnvRLKitBase, self).__init__()
 
         self.agent_host = MalmoPython.AgentHost()
         assets_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../assets')
