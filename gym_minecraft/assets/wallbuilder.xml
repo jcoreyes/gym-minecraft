@@ -108,7 +108,7 @@
             <!--<RewardForTouchingBlockType>-->
                <!--<Block behaviour="onceOnly" reward="5" type="brick_block" />-->
             <!--</RewardForTouchingBlockType>-->
-            <AgentQuitFromReachingCommandQuota description="command_quota_reached" total="100" />
+            <AgentQuitFromReachingCommandQuota description="command_quota_reached" total="200" />
             <!--<AgentQuitFromTouchingBlockType>-->
                <!--<Block description="Agent0_defaulted" type="brick_block" />-->
             <!--</AgentQuitFromTouchingBlockType>-->

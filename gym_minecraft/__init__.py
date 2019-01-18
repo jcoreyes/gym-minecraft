@@ -141,11 +141,18 @@ register(
 
 register(
     id='MinecraftWallBuilder-v0',
-    entry_point='gym_minecraft.envs:MinecraftEnvRLKit',
+    entry_point='gym_minecraft.envs:MinecraftEnvRLKitWallBuilder',
     kwargs={'mission_file': 'wallbuilder.xml'},
     #tags={'wrapper_config.TimeLimit.max_episode_steps': 2424},
     #timestep_limit=2424,
     reward_threshold=32000
 )
 
-
+register(
+    id='MinecraftWallNavigation-v0',
+    entry_point='gym_minecraft.envs:MinecraftEnvRLKitNavigation',
+    kwargs={'mission_file': 'wallbuilder.xml'},
+    #tags={'wrapper_config.TimeLimit.max_episode_steps': 2424},
+    #timestep_limit=2424,
+    reward_threshold=32000
+)

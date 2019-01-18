@@ -67,6 +67,7 @@ class MinecraftEnvRLKitBase(gym.Env):
 
         self.partial_dim = 6
         #self.partial_obs_space = Box(low=0, high=10, shape=(6,), dtype=np.float32)
+        self.agent_pos_space = Box(low=-10, high=10, shape=(2, ), dtype=np.float32)
         self.obs_space = Box(low=0, high=10, shape=(full_dim+4+6,), dtype=np.float32)
         self.goal_space = Box(low=0, high=10, shape=(full_dim,), dtype=np.float32)
         self.achieved_goal_space = Box(low=0, high=10, shape=(full_dim,), dtype=np.float32)
@@ -179,15 +180,16 @@ class MinecraftEnvRLKitBase(gym.Env):
         self.video_depth = self.mission_spec.getVideoChannels(0)
         #self.observation_space = spaces.Box(low=0, high=255,
         #        shape=(self.video_height, self.video_width, self.video_depth))
-
-        self.observation_space = Dict([
-            ('observation', self.obs_space),
-            ('desired_goal', self.goal_space),
-            ('achieved_goal', self.achieved_goal_space),
-            ('state_observation', self.obs_space),
-            ('state_desired_goal', self.goal_space),
-            ('state_achieved_goal', self.achieved_goal_space),
-        ])
+        self.observation_space = self.obs_space
+        # self.observation_space = Dict([
+        #     ('observation', self.obs_space),
+        #     ('desired_goal', self.goal_space),
+        #     ('achieved_goal', self.achieved_goal_space),
+        #     ('state_observation', self.obs_space),
+        #     ('state_desired_goal', self.goal_space),
+        #     ('state_achieved_goal', self.achieved_goal_space),
+        #     ('agent_pos', self.agent_pos_space),
+        # ])
         # dummy image just for the first observation
         self.last_image = np.zeros((self.video_height, self.video_width, self.video_depth), dtype=np.uint8)
 
@@ -271,7 +273,7 @@ class MinecraftEnvRLKitBase(gym.Env):
         for ch in chs:
 
             #cmds = self.mission_spec.getAllowedCommands(0, ch)
-            cmds = ["use", "strafe"]
+            cmds = ["move", "turn"]
             for cmd in cmds:
                 logger.debug(ch + ":" + cmd)
                 if ch == "ContinuousMovement":

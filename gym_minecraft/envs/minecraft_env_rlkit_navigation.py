@@ -30,7 +30,7 @@ MULTIPLE_DIRECTION_DISCRETE_MOVEMENTS = [ "move", "turn", "look", "strafe",
 
 BLOCK_KEY = dict(air=0, brick_block=1, grass=2, dirt=3, clay=4, spruce_fence=2)
 
-class MinecraftEnvRLKitWallBuilder(MinecraftEnvRLKitBase):
+class MinecraftEnvRLKitNavigation(MinecraftEnvRLKitBase):
     metadata = {'render.modes': ['human', 'rgb_array']}
 
     def __init__(self, mission_file):
@@ -65,7 +65,7 @@ class MinecraftEnvRLKitWallBuilder(MinecraftEnvRLKitBase):
         self.y = int(float(high['y']) - float(low['y']) + 1)
         self.z = int(high['z']) - int(low['z']) + 1
         self.voxel_shape = (self.y, self.x, self.z)
-        self.obs_shape = (self.y+1, self.x, self.z)
+        self.obs_shape = (self.y+4, self.x, self.z)
 
         self.voxel_dim = np.prod(self.voxel_shape)
         self.obs_dim = np.prod(self.obs_shape)
@@ -95,41 +95,27 @@ class MinecraftEnvRLKitWallBuilder(MinecraftEnvRLKitBase):
         msg = world_state.observations[-1].text
         state = json.loads(msg)
         state_obs = np.array([BLOCK_KEY[x] for x in state['board']])
-        state_obs = state_obs.reshape((self.y, self.x, self.z))
+        state_obs = state_obs.reshape((self.y, self.z, self.x))
 
         #self.last_obs = obs
         agent = state['entities'][0]
         agent_pos = np.array([agent['x'], agent['y'], agent['z'],
                               (agent['yaw']/270.0)])
 
-        yaw_to_idx = {0:1, 90:2, 180:3, 270:4}
-        full_obs = np.concatenate([state_obs, np.zeros((1, self.x, self.z))])
+        yaw_to_idx = {0:0, 90:1, 180:2, 270:3}
+        full_obs = np.concatenate([state_obs, np.zeros((4, self.z, self.x))])
         x_idx = int(agent_pos[0] - self.x_lim[0])
         z_idx = int(agent_pos[2] - self.z_lim[0])
-        full_obs[-1, z_idx, x_idx] = yaw_to_idx[agent['yaw']]
-
+        full_obs[yaw_to_idx[agent['yaw']] + 2, z_idx, x_idx] = 1 #yaw_to_idx[agent['yaw']]
+        self.agent_pos = np.array([agent_pos[0], agent_pos[2]])
         state_obs = state_obs.flatten()
         full_obs = full_obs.flatten()
 
-        return dict(
-            observation=full_obs,
-            desired_goal=self._state_goal,
-            achieved_goal=state_obs,
-            state_desired_goal=self._state_goal,
-            state_observation=full_obs,
-            state_achieved_goal=state_obs,
-            agent_pos=np.array([agent_pos[0], agent_pos[2]])
-        )
+        return full_obs
 
     def compute_rewards(self, actions, obs):
-        achieved_goals = obs['achieved_goal']
-        desired_goals = obs['desired_goal']
-        #r = np.sum(achieved_goals == desired_goals, axis=-1) - np.sum(desired_goals == 0, axis=-1)
-        r = -np.linalg.norm(obs['agent_pos'] - np.array([3.5, 3.5]), axis=-1)
-        # if len(obs['agent_pos'].shape) > 1:
-        #     import pdb; pdb.set_trace()
-        #r = np.sum(np.bitwise_and(achieved_goals == desired_goals, desired_goals != 0), -1)
-        #distances = np.linalg.norm(achieved_goals - desired_goals, axis=1)
+
+        r = -np.linalg.norm(self.agent_pos - np.array([3.5, 3.5]), axis=-1)
         return r
 
 
@@ -151,7 +137,7 @@ class MinecraftEnvRLKitWallBuilder(MinecraftEnvRLKitBase):
 
 if __name__ == '__main__':
     import gym_minecraft
-    env = gym.make('MinecraftWallBuilder-v0')
+    env = gym.make('MinecraftWallNavigation-v0')
     env.init(start_minecraft=False)
     #import pdb; pdb.set_trace()
     for i in range(3):
@@ -174,7 +160,7 @@ if __name__ == '__main__':
             # print("done: " + str(done))
             #print("obs: " + str(obs))
             # print(obs['state_observation'][:env.full_dim].reshape((env.y, env.x, env.z)))
-            print(obs['state_observation'].reshape(env.obs_shape))
+            print(obs.reshape(env.obs_shape))
             #print(obs['state_observation'][env.full_dim+4:].reshape((env.y, 3)))
             #print(obs['state_observation'][env.full_dim:env.full_dim+4])
 

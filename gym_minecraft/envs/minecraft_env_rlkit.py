@@ -271,7 +271,7 @@ class MinecraftEnvRLKit(gym.Env):
         for ch in chs:
 
             #cmds = self.mission_spec.getAllowedCommands(0, ch)
-            cmds = ["use", "strafe"]
+            cmds = ["use", "move", "turn"]
             for cmd in cmds:
                 logger.debug(ch + ":" + cmd)
                 if ch == "ContinuousMovement":
@@ -543,7 +543,8 @@ class MinecraftEnvRLKit(gym.Env):
     def compute_rewards(self, actions, obs):
         achieved_goals = obs['achieved_goal']
         desired_goals = obs['desired_goal']
-        r = np.sum(achieved_goals == desired_goals, -1)
+        #r = np.sum(achieved_goals == desired_goals, -1)
+        r = -np.linalg.norm(obs['agent_pos'] - np.array([3.5, 3.5]), axis=-1)
         #r = np.sum(np.bitwise_and(achieved_goals == desired_goals, desired_goals != 0), -1)
         #distances = np.linalg.norm(achieved_goals - desired_goals, axis=1)
         return r
