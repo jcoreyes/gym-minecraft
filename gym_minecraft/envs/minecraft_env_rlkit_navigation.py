@@ -65,7 +65,7 @@ class MinecraftEnvRLKitNavigation(MinecraftEnvRLKitBase):
         self.y = int(float(high['y']) - float(low['y']) + 1)
         self.z = int(high['z']) - int(low['z']) + 1
         self.voxel_shape = (self.y, self.x, self.z)
-        self.obs_shape = (self.y+4, self.x, self.z)
+        self.obs_shape = (self.y+6, self.x, self.z)
 
         self.voxel_dim = np.prod(self.voxel_shape)
         self.obs_dim = np.prod(self.obs_shape)
@@ -91,6 +91,127 @@ class MinecraftEnvRLKitNavigation(MinecraftEnvRLKitBase):
 
         self.init_state = None
 
+    def init(self, client_pool=None, start_minecraft=None,
+             continuous_discrete=True, add_noop_command=None,
+             max_retries=90, retry_sleep=10, step_sleep=0.001, skip_steps=0,
+             videoResolution=None, videoWithDepth=None,
+             observeRecentCommands=None, observeHotBar=None,
+             observeFullInventory=None, observeGrid=None,
+             observeDistance=None, observeChat=None,
+             allowContinuousMovement=None, allowDiscreteMovement=None,
+             allowAbsoluteMovement=None, recordDestination=None,
+             recordObservations=None, recordRewards=None,
+             recordCommands=None, recordMP4=None,
+             gameMode=None, forceWorldReset=None, image_obs=False):
+
+        self.max_retries = max_retries
+        self.retry_sleep = retry_sleep
+        self.step_sleep = step_sleep
+        self.skip_steps = skip_steps
+        self.forceWorldReset = forceWorldReset
+        self.continuous_discrete = continuous_discrete
+        self.add_noop_command = add_noop_command
+        self.image_obs = image_obs
+
+        if videoResolution:
+            if videoWithDepth:
+                self.mission_spec.requestVideoWithDepth(*videoResolution)
+            else:
+                self.mission_spec.requestVideo(*videoResolution)
+
+        if observeRecentCommands:
+            self.mission_spec.observeRecentCommands()
+        if observeHotBar:
+            self.mission_spec.observeHotBar()
+        if observeFullInventory:
+            self.mission_spec.observeFullInventory()
+        if observeGrid:
+            self.mission_spec.observeGrid(*(observeGrid + ["grid"]))
+        if observeDistance:
+            self.mission_spec.observeDistance(*(observeDistance + ["dist"]))
+        if observeChat:
+            self.mission_spec.observeChat()
+
+        if allowContinuousMovement or allowDiscreteMovement or allowAbsoluteMovement:
+            # if there are any parameters, remove current command handlers first
+            self.mission_spec.removeAllCommandHandlers()
+
+            if allowContinuousMovement is True:
+                self.mission_spec.allowAllContinuousMovementCommands()
+            elif isinstance(allowContinuousMovement, list):
+                for cmd in allowContinuousMovement:
+                    self.mission_spec.allowContinuousMovementCommand(cmd)
+
+            if allowDiscreteMovement is True:
+                self.mission_spec.allowAllDiscreteMovementCommands()
+            elif isinstance(allowDiscreteMovement, list):
+                for cmd in allowDiscreteMovement:
+                    self.mission_spec.allowDiscreteMovementCommand(cmd)
+
+            if allowAbsoluteMovement is True:
+                self.mission_spec.allowAllAbsoluteMovementCommands()
+            elif isinstance(allowAbsoluteMovement, list):
+                for cmd in allowAbsoluteMovement:
+                    self.mission_spec.allowAbsoluteMovementCommand(cmd)
+
+        if start_minecraft:
+            # start Minecraft process assigning port dynamically
+            self.mc_process, port = minecraft_py.start()
+            logger.info("Started Minecraft on port %d, overriding client_pool.", port)
+            client_pool = [('127.0.0.1', port)]
+
+        if client_pool:
+            if not isinstance(client_pool, list):
+                raise ValueError("client_pool must be list of tuples of (IP-address, port)")
+            self.client_pool = MalmoPython.ClientPool()
+            for client in client_pool:
+                self.client_pool.add(MalmoPython.ClientInfo(*client))
+
+        # TODO: produce observation space dynamically based on requested features
+
+        self.video_height = self.mission_spec.getVideoHeight(0)
+        self.video_width = self.mission_spec.getVideoWidth(0)
+        self.video_depth = self.mission_spec.getVideoChannels(0)
+        #self.observation_space = spaces.Box(low=0, high=255,
+        #        shape=(self.video_height, self.video_width, self.video_depth))
+        self.observation_space = self.obs_space
+        # self.observation_space = Dict([
+        #     ('observation', self.obs_space),
+        #     ('desired_goal', self.goal_space),
+        #     ('achieved_goal', self.achieved_goal_space),
+        #     ('state_observation', self.obs_space),
+        #     ('state_desired_goal', self.goal_space),
+        #     ('state_achieved_goal', self.achieved_goal_space),
+        #     ('agent_pos', self.agent_pos_space),
+        # ])
+        # dummy image just for the first observation
+        self.last_image = np.zeros((self.video_height, self.video_width, self.video_depth), dtype=np.uint8)
+
+        self._create_action_space()
+
+        # mission recording
+        self.mission_record_spec = MalmoPython.MissionRecordSpec()  # record nothing
+        if recordDestination:
+            self.mission_record_spec.setDestination(recordDestination)
+        if recordRewards:
+            self.mission_record_spec.recordRewards()
+        if recordCommands:
+            self.mission_record_spec.recordCommands()
+        if recordMP4:
+            self.mission_record_spec.recordMP4(*recordMP4)
+
+        if gameMode:
+            if gameMode == "spectator":
+                self.mission_spec.setModeToSpectator()
+            elif gameMode == "creative":
+                self.mission_spec.setModeToCreative()
+            elif gameMode == "survival":
+                logger.warn("Cannot force survival mode, assuming it is the default.")
+            else:
+                assert False, "Unknown game mode: " + gameMode
+
+        #self._start_mission()
+
     def _get_obs(self, world_state):
         msg = world_state.observations[-1].text
         state = json.loads(msg)
@@ -103,7 +224,7 @@ class MinecraftEnvRLKitNavigation(MinecraftEnvRLKitBase):
                               (agent['yaw']/270.0)])
 
         yaw_to_idx = {0:0, 90:1, 180:2, 270:3}
-        full_obs = np.concatenate([state_obs, np.zeros((4, self.z, self.x))])
+        full_obs = np.concatenate([state_obs, np.zeros((6, self.z, self.x))])
         x_idx = int(agent_pos[0] - self.x_lim[0])
         z_idx = int(agent_pos[2] - self.z_lim[0])
         full_obs[yaw_to_idx[agent['yaw']] + 2, z_idx, x_idx] = 1 #yaw_to_idx[agent['yaw']]

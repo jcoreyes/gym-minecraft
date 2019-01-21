@@ -149,7 +149,7 @@ register(
 )
 
 register(
-    id='MinecraftWallNavigation-v0',
+    id='MinecraftNavigation-v0',
     entry_point='gym_minecraft.envs:MinecraftEnvRLKitNavigation',
     kwargs={'mission_file': 'wallbuilder.xml'},
     #tags={'wrapper_config.TimeLimit.max_episode_steps': 2424},
